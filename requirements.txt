@@ -1,9 +1,8 @@
-
-streamlit
 torch
 torchvision
 numpy
-Pillow
-PyYAML
-scikit-image
+pillow
+streamlit
+gradio
 huggingface_hub
+pyyaml
