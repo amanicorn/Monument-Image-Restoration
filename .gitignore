@@ -1,0 +1,25 @@
+
+# Python
+__pycache__/
+*.pyc
+
+# Large models
+*.pth
+*.pt
+*.ckpt
+
+# Training data
+monument_damage_dataset/
+monument_dataset/
+
+# Training outputs
+checkpoints/
+tb_logs/
+
+# Generated images
+*.png
+*.jpg
+*.jpeg
+
+# Not needed for deployment
+*.ipynb

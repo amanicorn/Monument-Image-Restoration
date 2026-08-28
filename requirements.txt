@@ -1,0 +1,8 @@
+
+streamlit
+torch
+torchvision
+numpy
+Pillow
+PyYAML
+scikit-image

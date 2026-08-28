@@ -1,0 +1,55 @@
+
+# resume training
+model_restore: 'pretrained/states_pt_places2.pth'
+
+# dataloading
+dataset_path: '/root/.cache/kagglehub/datasets/danushkumarv/indian-monuments-image-dataset/versions/1/Indian-monuments/images/train'
+scan_subdirs: True
+random_crop: True
+random_horizontal_flip: True
+batch_size: 4
+num_workers: 2
+
+# training
+tb_logging: True
+log_dir: 'tb_logs/monuments/model_exp0'
+checkpoint_dir: 'checkpoints/monuments/model_exp0'
+
+use_cuda_if_available: True
+random_seed: 42
+
+g_lr: 0.0001
+g_beta1: 0.5
+g_beta2: 0.999
+
+d_lr: 0.0001
+d_beta1: 0.5
+d_beta2: 0.999
+
+# Start small for our first experiment
+max_iters: 5000
+
+# logging
+viz_max_out: 4
+print_iter: 100
+save_checkpoint_iter: 1000
+save_imgs_to_tb_iter: 500
+save_imgs_to_disc_iter: 500
+save_cp_backup_iter: 2500
+
+img_shapes: [256, 256, 3]
+
+# mask options
+height: 128
+width: 128
+max_delta_height: 32
+max_delta_width: 32
+vertical_margin: 0
+horizontal_margin: 0
+
+# loss
+gan_loss: 'hinge'
+gan_loss_alpha: 1.
+
+ae_loss: True
+l1_loss_alpha: 1.
