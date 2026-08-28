@@ -17,6 +17,17 @@ st.set_page_config(
     layout="wide"
 )
 
+st.markdown(
+    """
+    <style>
+    iframe[title="streamlit_drawable_canvas.drawable_canvas"] {
+        touch-action: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ==========================================
@@ -71,30 +82,13 @@ st.sidebar.info("💡 **Instructions**:\n1. Upload an image.\n2. Draw over damag
 uploaded_file = st.file_uploader("Upload Damaged Monument Image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
-    # 1. Standardize and resize image
+    # 1. Process and format image cleanly
     raw_img = Image.open(uploaded_file)
     raw_img = ImageOps.exif_transpose(raw_img)
-    clean_img = raw_img.convert("RGB").resize((256, 256))
+    clean_rgb = raw_img.convert("RGB").resize((256, 256))
 
-    # 2. Convert to Base64 to bypass Streamlit Cloud 404 iframe buffer bug
-    buf = io.BytesIO()
-    clean_img.save(buf, format="PNG")
-    b64_str = base64.b64encode(buf.getvalue()).decode()
-
-    # 3. Inject image directly into canvas iframe via CSS
-    st.markdown(
-        f"""
-        <style>
-        iframe[title="streamlit_drawable_canvas.drawable_canvas"] {{
-            background: url("data:image/png;base64,{b64_str}") no-repeat center center !important;
-            background-size: 256px 256px !important;
-            touch-action: none;
-            border-radius: 4px;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+    # 2. Build clean base PIL image
+    bg_pil = Image.fromarray(np.array(clean_rgb))
 
     col_draw, col_mask = st.columns(2)
 
@@ -104,13 +98,12 @@ if uploaded_file:
             fill_color="rgba(255, 255, 255, 1.0)",
             stroke_width=brush_size,
             stroke_color="#FFFFFF",
-            background_image=None,             # Set to None to prevent 404 URL call
-            background_color="rgba(0,0,0,0)",  # Fully transparent canvas overlay
+            background_image=bg_pil,
             update_streamlit=True,
             height=256,
             width=256,
             drawing_mode="freedraw",
-            key=f"canvas_{uploaded_file.name}",
+            key="monument_canvas_v1",
         )
 
     mask_np = np.zeros((256, 256), dtype=np.float32)
@@ -132,13 +125,13 @@ if uploaded_file:
             st.warning("⚠️ Please paint over the damaged areas on the canvas first.")
         else:
             with st.spinner("Restoring monument..."):
-                img_normalized = np.array(clean_img).astype(np.float32) / 255.0
+                img_normalized = np.array(clean_rgb).astype(np.float32) / 255.0
                 restored_img = restore_image(img_normalized, mask_np)
 
             st.subheader("3. Restoration Results")
             res1, res2, res3 = st.columns(3)
             with res1:
-                st.image(clean_img, caption="Uploaded Damaged Image", use_container_width=True)
+                st.image(clean_rgb, caption="Uploaded Damaged Image", use_container_width=True)
             with res2:
                 st.image(mask_np, caption="Applied Mask", use_container_width=True)
             with res3:
