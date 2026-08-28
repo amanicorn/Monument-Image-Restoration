@@ -3,6 +3,6 @@ torchvision
 numpy
 pillow
 streamlit
-gradio
+streamlit-drawable-canvas-fix
 huggingface_hub
 pyyaml
