@@ -1,3 +1,5 @@
+import io
+import base64
 import streamlit as st
 import torch
 import numpy as np
@@ -13,6 +15,18 @@ st.set_page_config(
     page_title="Monument Image Restoration",
     page_icon="🏛️",
     layout="wide"
+)
+
+# Mobile touch CSS
+st.markdown(
+    """
+    <style>
+    iframe[title="streamlit_drawable_canvas.drawable_canvas"] {
+        touch-action: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -64,11 +78,12 @@ st.write("Upload a damaged monument photo, brush over the damaged areas, and res
 
 st.sidebar.header("Brush Controls")
 brush_size = st.sidebar.slider("Brush Size", min_value=5, max_value=60, value=20)
-st.sidebar.info("💡 **Instructions**:\n1. Upload an image.\n2. Draw over damaged regions.\n3. Click **Restore Monument**.")
+st.sidebar.info("💡 **Instructions**:\n1. Upload an image.\n2. Draw over damaged regions in white.\n3. Click **Restore Monument**.")
 
 uploaded_file = st.file_uploader("Upload Damaged Monument Image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
+    # Ensure RGB, resized to standard 256x256
     image = Image.open(uploaded_file).convert("RGB").resize((256, 256))
 
     col_draw, col_mask = st.columns(2)
@@ -80,11 +95,12 @@ if uploaded_file:
             stroke_width=brush_size,
             stroke_color="#FFFFFF",
             background_image=image,
+            background_color="#000000",
             update_streamlit=True,
             height=256,
             width=256,
             drawing_mode="freedraw",
-            key="canvas_monument",
+            key=f"canvas_{uploaded_file.name}",  # Dynamic key prevents stale black cache
         )
 
     mask_np = np.zeros((256, 256), dtype=np.float32)
