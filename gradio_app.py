@@ -1,27 +1,28 @@
 import os
+import urllib.request
 import gradio as gr
 import torch
 import numpy as np
 from PIL import Image
-from huggingface_hub import hf_hub_download
 from model.networks import Generator
 
 # Device setup
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Read token from environment
-HF_TOKEN = os.environ.get("HF_TOKEN", None)
+# Model path handling
+MODEL_DIR = "checkpoints"
+os.makedirs(MODEL_DIR, exist_ok=True)
+CHECKPOINT_PATH = os.path.join(MODEL_DIR, "states.pth")
 
-# Download checkpoint with authentication
-CHECKPOINT = hf_hub_download(
-    repo_id="amanicorn/monument-deepfillv2",
-    filename="states.pth",
-    repo_type="model",
-    token=HF_TOKEN
-)
+# Direct download fallback if file is not present
+if not os.path.exists(CHECKPOINT_PATH) or os.path.getsize(CHECKPOINT_PATH) < 100000000:
+    print(f"Downloading checkpoint directly to {CHECKPOINT_PATH}...")
+    URL = "https://huggingface.co/amanicorn/monument-deepfillv2/resolve/main/states.pth"
+    urllib.request.urlretrieve(URL, CHECKPOINT_PATH)
+    print("Download complete.")
 
 # Load generator model
-checkpoint = torch.load(CHECKPOINT, map_location=DEVICE)
+checkpoint = torch.load(CHECKPOINT_PATH, map_location=DEVICE)
 generator = Generator(
     cnum_in=5,
     cnum_out=3,
