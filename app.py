@@ -9,7 +9,7 @@ from huggingface_hub import hf_hub_download
 from model.networks import Generator
 
 # ==========================================
-# PAGE CONFIG
+# PAGE CONFIG & CSS
 # ==========================================
 st.set_page_config(
     page_title="Monument Image Restoration",
@@ -73,22 +73,25 @@ def restore_image(image_np, mask_np):
 # UI
 # ==========================================
 st.title("🏛️ Monument Image Restoration")
-st.write("Upload a damaged monument photo, brush over the damaged areas, and restore it using fine-tuned DeepFill v2.")
+st.write("Upload a damaged monument photo, brush over the damaged areas in white, and click **Restore Monument**.")
 
 st.sidebar.header("Brush Controls")
 brush_size = st.sidebar.slider("Brush Size", min_value=5, max_value=60, value=20)
-st.sidebar.info("💡 **Instructions**:\n1. Upload an image.\n2. Draw over damaged regions in white.\n3. Click **Restore Monument**.")
+debug_mode = st.sidebar.checkbox("Enable Debug Mode", value=False)
 
 uploaded_file = st.file_uploader("Upload Damaged Monument Image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
-    # 1. Process and format image cleanly
+    # 1. Standardize image
     raw_img = Image.open(uploaded_file)
     raw_img = ImageOps.exif_transpose(raw_img)
     clean_rgb = raw_img.convert("RGB").resize((256, 256))
 
-    # 2. Build clean base PIL image
-    bg_pil = Image.fromarray(np.array(clean_rgb))
+    # 2. Convert to self-contained Base64 Data URI (Bypasses HTTP / iframe 404s completely)
+    buf = io.BytesIO()
+    clean_rgb.save(buf, format="PNG")
+    b64_data = base64.b64encode(buf.getvalue()).decode("utf-8")
+    data_uri = f"data:image/png;base64,{b64_data}"
 
     col_draw, col_mask = st.columns(2)
 
@@ -98,12 +101,12 @@ if uploaded_file:
             fill_color="rgba(255, 255, 255, 1.0)",
             stroke_width=brush_size,
             stroke_color="#FFFFFF",
-            background_image=bg_pil,
+            background_image=Image.open(io.BytesIO(buf.getvalue())),
             update_streamlit=True,
             height=256,
             width=256,
             drawing_mode="freedraw",
-            key="monument_canvas_v1",
+            key=f"canvas_{uploaded_file.name}_{uploaded_file.size}",
         )
 
     mask_np = np.zeros((256, 256), dtype=np.float32)
@@ -118,6 +121,20 @@ if uploaded_file:
     with col_mask:
         st.subheader("2. Mask Preview")
         st.image(mask_np, clamp=True, width=256, caption="Binary Inpainting Mask")
+
+    # ==========================================
+    # OPTIONAL DEBUG PANEL
+    # ==========================================
+    if debug_mode:
+        with st.expander("🛠️ Diagnostics & Debug Info", expanded=True):
+            st.json({
+                "Filename": uploaded_file.name,
+                "File Size (bytes)": uploaded_file.size,
+                "Base64 Prefix": data_uri[:50] + "...",
+                "Canvas Data Received": canvas_result.image_data is not None,
+                "Mask Active Pixel Count": int(mask_np.sum()),
+                "Running Device": str(DEVICE)
+            })
 
     st.write("---")
     if st.button("✨ Restore Monument", type="primary"):
