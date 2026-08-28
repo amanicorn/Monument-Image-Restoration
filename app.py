@@ -16,7 +16,13 @@ DEVICE = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
 )
 
-CHECKPOINT = "checkpoints/monuments/model_exp0/states.pth"
+from huggingface_hub import hf_hub_download
+
+CHECKPOINT = hf_hub_download(
+    repo_id="amanicorn/monument-deepfillv2",
+    filename="states.pth",
+    repo_type="model"
+)
 
 
 # ==========================================
@@ -26,6 +32,11 @@ CHECKPOINT = "checkpoints/monuments/model_exp0/states.pth"
 @st.cache_resource
 def load_model():
 
+    checkpoint = torch.load(
+        CHECKPOINT,
+        map_location=DEVICE
+    )
+
     generator = Generator(
         cnum_in=5,
         cnum_out=3,
@@ -33,13 +44,7 @@ def load_model():
         return_flow=False
     )
 
-    checkpoint = torch.load(
-        CHECKPOINT,
-        map_location=DEVICE
-    )
-
     generator.load_state_dict(checkpoint["G"])
-
     generator.to(DEVICE)
     generator.eval()
 

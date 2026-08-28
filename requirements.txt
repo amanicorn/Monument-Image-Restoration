@@ -6,3 +6,4 @@ numpy
 Pillow
 PyYAML
 scikit-image
+huggingface_hub
