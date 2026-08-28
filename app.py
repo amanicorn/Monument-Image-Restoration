@@ -1,9 +1,8 @@
 import io
-import base64
 import streamlit as st
 import torch
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from streamlit_drawable_canvas import st_canvas
 from huggingface_hub import hf_hub_download
 from model.networks import Generator
@@ -17,7 +16,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Mobile touch CSS
 st.markdown(
     """
     <style>
@@ -83,8 +81,15 @@ st.sidebar.info("💡 **Instructions**:\n1. Upload an image.\n2. Draw over damag
 uploaded_file = st.file_uploader("Upload Damaged Monument Image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
-    # Ensure RGB, resized to standard 256x256
-    image = Image.open(uploaded_file).convert("RGB").resize((256, 256))
+    # 1. Open and standardize image
+    raw_img = Image.open(uploaded_file)
+    raw_img = ImageOps.exif_transpose(raw_img)
+    
+    # 2. Canvas expects RGBA PIL image to avoid black background occlusion
+    canvas_bg_img = raw_img.convert("RGBA").resize((256, 256))
+    
+    # Clean RGB for inference
+    inference_img = raw_img.convert("RGB").resize((256, 256))
 
     col_draw, col_mask = st.columns(2)
 
@@ -94,13 +99,13 @@ if uploaded_file:
             fill_color="rgba(255, 255, 255, 1.0)",
             stroke_width=brush_size,
             stroke_color="#FFFFFF",
-            background_image=image,
-            background_color="#000000",
+            background_image=canvas_bg_img,
+            background_color="rgba(0, 0, 0, 0)",  # Transparent to let background_image show
             update_streamlit=True,
             height=256,
             width=256,
             drawing_mode="freedraw",
-            key=f"canvas_{uploaded_file.name}",  # Dynamic key prevents stale black cache
+            key=f"canvas_{uploaded_file.name}",
         )
 
     mask_np = np.zeros((256, 256), dtype=np.float32)
@@ -122,13 +127,13 @@ if uploaded_file:
             st.warning("⚠️ Please paint over the damaged areas on the canvas first.")
         else:
             with st.spinner("Restoring monument..."):
-                img_normalized = np.array(image).astype(np.float32) / 255.0
+                img_normalized = np.array(inference_img).astype(np.float32) / 255.0
                 restored_img = restore_image(img_normalized, mask_np)
 
             st.subheader("3. Restoration Results")
             res1, res2, res3 = st.columns(3)
             with res1:
-                st.image(image, caption="Uploaded Damaged Image", use_container_width=True)
+                st.image(inference_img, caption="Uploaded Damaged Image", use_container_width=True)
             with res2:
                 st.image(mask_np, caption="Applied Mask", use_container_width=True)
             with res3:
