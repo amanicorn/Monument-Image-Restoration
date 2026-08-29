@@ -23,3 +23,5 @@ tb_logs/
 
 # Not needed for deployment
 *.ipynb
+.gradio/
+*.log
