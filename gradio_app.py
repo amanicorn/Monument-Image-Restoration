@@ -5,6 +5,9 @@ from PIL import Image, ImageFilter
 from scipy.ndimage import label
 from huggingface_hub import hf_hub_download
 from model.networks import Generator
+from lama_inference import load_lama, restore_lama
+
+LAMA_MODEL = None
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -41,7 +44,7 @@ def run_deepfill_patch(img_patch_pil, mask_patch_np):
     return (completed * 255).astype(np.uint8)
 
 @torch.no_grad()
-def restore_monument(editor_data):
+def restore_monument(editor_data, model_choice):
     if editor_data is None:
         return None, None, "Please upload an image."
 
@@ -66,6 +69,15 @@ def restore_monument(editor_data):
 
     if full_mask_np.sum() == 0:
         return None, None, "No brush strokes detected."
+
+    mask_preview_pil = Image.fromarray((full_mask_np * 255).astype(np.uint8))
+
+    if model_choice == "LaMa":
+        global LAMA_MODEL
+        if LAMA_MODEL is None:
+            LAMA_MODEL = load_lama()
+        restored_image = restore_lama(orig_rgb, mask_preview_pil, LAMA_MODEL)
+        return mask_preview_pil, restored_image, "Restored with LaMa at original image resolution."
 
     # Identify distinct disconnected painted regions
     labeled_mask, num_features = label(full_mask_np > 0)
@@ -134,7 +146,6 @@ def restore_monument(editor_data):
             img_arr[crop_y1:crop_y2, crop_x1:crop_x2] = blended_crop
             current_image = Image.fromarray(img_arr)
 
-    mask_preview_pil = Image.fromarray((full_mask_np * 255).astype(np.uint8))
     return mask_preview_pil, current_image, f"Restored {num_features} regions with original camera quality preserved!"
 
 with gr.Blocks(title="Monument Image Restoration") as demo:
@@ -151,6 +162,11 @@ with gr.Blocks(title="Monument Image Restoration") as demo:
                 eraser=gr.Eraser(default_size=20),
                 height=400
             )
+            model_choice = gr.Dropdown(
+                choices=["DeepFill v2", "LaMa"],
+                value="DeepFill v2",
+                label="Inpainting Model"
+            )
             restore_btn = gr.Button("✨ Restore Monument", variant="primary")
             status_text = gr.Textbox(label="Status", interactive=False)
 
@@ -160,7 +176,7 @@ with gr.Blocks(title="Monument Image Restoration") as demo:
 
     restore_btn.click(
         fn=restore_monument,
-        inputs=[editor],
+        inputs=[editor, model_choice],
         outputs=[mask_output, restored_output, status_text]
     )
 
