@@ -45,12 +45,25 @@ def load_lama():
     config.training_model.predict_only = True
     config.visualizer.kind = "noop"
 
-    model = load_checkpoint(
-        config,
-        checkpoint_path,
-        map_location="cpu",
-        strict=False,
-    )
+    # This checkpoint is from our trusted Hugging Face model repository.
+    # PyTorch 2.6+ defaults to weights_only=True, which breaks this
+    # legacy LaMa checkpoint containing a PyTorch Lightning object.
+    original_torch_load = torch.load
+
+    def trusted_checkpoint_load(*args, **kwargs):
+        kwargs.setdefault("weights_only", False)
+        return original_torch_load(*args, **kwargs)
+
+    torch.load = trusted_checkpoint_load
+    try:
+        model = load_checkpoint(
+            config,
+            checkpoint_path,
+            map_location="cpu",
+            strict=False,
+        )
+    finally:
+        torch.load = original_torch_load
     model.freeze()
     model.to(DEVICE)
     model.eval()
